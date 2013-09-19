@@ -2,9 +2,25 @@
 
 (require racket/block)
 (require "dragon-list.rkt")
-(define Nobody (Dragon "(nobody)" '(0 0 0)))
+
+(define Nobody (Dragon "(nobody)" '(1 1 1)))
 (define pairing-male Nobody)
 (define pairing-female Nobody)
+(define (set-male d)
+  (set! pairing-male d)
+  (for-each (λ (n) (send (list-ref male-drops n) set-selection 
+                         (sub1 (list-ref (Dragon-numbers d) n))))
+            '(0 1 2))
+  (refresh-pairing))
+(define (set-female d)
+  (set! pairing-female d)
+  (for-each (λ (n) (send (list-ref female-drops n) set-selection 
+                         (sub1 (list-ref (Dragon-numbers d) n))))
+            '(0 1 2))
+  (refresh-pairing))
+(define (get-male) pairing-male)
+(define (get-female) pairing-female)
+
 (define vis '(#t #t #t))
 
 (define hex-values
@@ -88,7 +104,7 @@
       (send dc set-brush (send dc get-background) 'solid)
       (draw-circle dc (/ width 2) (/ height 2) (+ 200 (* 50 (- 2 j)))))))
 
-(define frame (new frame% [label "Colours"]))
+(define frame (new frame% [label "Dragonwheels v0.1"])) ; VERSION NUMBER HERE
 (define horizon (new horizontal-panel% [parent frame] [alignment '(center center)]))
 (define left-p (new vertical-panel% [parent horizon]))
 (define mid-p (new vertical-panel% [parent horizon]))
@@ -101,7 +117,6 @@
       (let*-values ([(width height) (send (send this get-dc) get-size)]
                     [(x) (- (send event get-x) (/ width 2))] 
                     [(y) (- (send event get-y) (/ height 2))])
-        (send colour-label auto-resize #t)
         (send colour-label set-label 
               (let ([pst (xy->pst x y)])
                 (if (equal? pst "") pst
@@ -109,7 +124,7 @@
     (super-new)))
 
 (define (reset-all)
-  (set! pairing-male Nobody) (set! pairing-female Nobody)
+  (set-male Nobody) (set-female Nobody)
   (set! rot (* τ 1/4))
   (set! timon #f)
   (send pause-spin set-label "Spin")
@@ -117,43 +132,75 @@
   (for-each (λ (b) (unless (equal? (substring (send b get-label) 0 4) "Hide")
                      (send b command b))) (send toggle-p get-children)))
 
-(new button% [parent top-p] [label "Reset"] [stretchable-height #t]
-     [callback (λ (b e) (reset-all) (refresh-pairing))])
+(define (colour-drops tall-p getpr setpr)
+  (map 
+   (λ (n s) 
+     (new choice% [label s] [parent tall-p]
+          [callback (λ (c e) 
+                      (let ([drns (Dragon-numbers (getpr))])
+                        (setpr (Dragon "(Unknown)"
+                                       (append (take drns n)
+                                               (cons (add1 (send c get-selection))
+                                                     (drop drns (add1 n))))))))]
+          [choices (build-list 67 (λ (n) (symbol->string (colours (add1 n)))))]))
+   '(0 1 2) '("Primary: " "Secondary: " "Tertiary: ")))
+(define male-p (new vertical-panel% [parent (new horizontal-panel% [parent top-p] 
+                                                 [alignment '(left center)])] 
+                    [stretchable-width #f] [alignment '(right center)]))
+(define male-label (new message% [label ""] [auto-resize #t]
+                        [parent (new horizontal-panel% [parent male-p] [stretchable-height #f]
+                                     [alignment '(center center)])]))
+(define male-drops (colour-drops male-p get-male set-male))
 
-(define toggle-p (new vertical-panel% [parent top-p] [stretchable-width #f] [alignment '(center center)]))
+(define reset-b (new button% [parent top-p] [label "Reset"] [stretchable-height #t]
+                     [callback (λ (b e) (reset-all) (refresh-pairing))]))
+
+(define toggle-p (new vertical-panel% [parent top-p] [stretchable-width #f] 
+                      [alignment '(center center)]))
 (for-each 
  (λ (n s) (new button% [parent toggle-p] [label (string-append "Hide " s)]
-               [callback (λ (b e) (set! vis (append (take vis n) (list (not (list-ref vis n))) 
-                                                    (rest (drop vis n))))
+               [callback (λ (b e) (set! vis (append (take vis n) (cons (not (list-ref vis n)) 
+                                                                       (drop vis (add1 n)))))
                            (if (list-ref vis n)
                                (send b set-label (string-append "Hide " s))
                                (send b set-label (string-append "Show " s)))
-                           (refresh-pairing))])) 
+                           (refresh-pairing))]))
  '(0 1 2) '("Primary" "Secondary" "Tertiary"))
 
 (define pause-spin (new button% [parent top-p] [label "Spin"] [stretchable-height #t]
                         [callback (λ (b e) (if timon 
-                                               (block (send tim stop) (send b set-label "Spin")) 
-                                               (block (send tim start 500) (send b set-label "Pause")))
+                                               (block (send tim stop) 
+                                                      (send b set-label "Spin")) 
+                                               (block (send tim start 500) 
+                                                      (send b set-label "Pause")))
                                     (set! timon (not timon)))]))
+(define female-p (new vertical-panel% [parent (new horizontal-panel% [parent top-p] 
+                                                   [alignment '(right center)])] 
+                      [stretchable-width #f] [alignment '(right center)]))
+(define female-label (new message% [label ""] [auto-resize #t]
+                          [parent (new horizontal-panel% [parent female-p] [stretchable-height #f]
+                                       [alignment '(center center)])]))
+(define female-drops
+  (colour-drops female-p get-female set-female))
 
-(define pairing-label (new message% [parent mid-p] [label ""]))
+(define pairing-label (new message% [parent mid-p] [label ""] [auto-resize #t]))
 (define (refresh-pairing)
-  (send pairing-label auto-resize #t)
   (send pairing-label set-label (string-append (name-dragon pairing-male) "/" 
                                                (name-dragon pairing-female)))
+  (send male-label set-label (name-dragon pairing-male))
+  (send female-label set-label (name-dragon pairing-female))
   (send canvas refresh))
 (define canvas (new my-canvas% [parent mid-p] [min-width 700] [min-height 700]
                     [paint-callback 
                      (λ (canvas dc)
                        (draw-rings dc))]))
-(define colour-label (new message% [parent mid-p] [label ""]))
+(define colour-label (new message% [parent mid-p] [label ""] [auto-resize #t]))
 
 (for-each (λ (d) (new button% [label (name-dragon d)] [parent left-p]
-                      [callback (λ (b e) (set! pairing-male d) (refresh-pairing))])) 
+                      [callback (λ (b e) (set-male d))])) 
           (cons Nobody male-dragons))
 (for-each (λ (d) (new button% [label (name-dragon d)] [parent right-p]
-                      [callback (λ (b e) (set! pairing-female d) (refresh-pairing))])) 
+                      [callback (λ (b e) (set-female d))])) 
           (cons Nobody female-dragons))
 
 (send frame show #t)
