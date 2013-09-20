@@ -97,12 +97,14 @@
   (let* ([half (if (zero? x) (/ τ 4) (atan (/ y x)))]
          [prel (+ rot (if (> x 0) (if (> y 0) half (+ τ half)) (+ (/ τ 2) half)))])
     (if (> prel τ) (- prel τ) prel)))
-(define (xy->pst x y)
-  (let ([dist (sqrt (+ (* x x) (* y y)))])
-    (cond [(or (< dist 200) (> dist 350)) ""]
-          [(< dist 250) "Primary: "]
-          [(< dist 300) "Secondary: "]
-          [else "Tertiary: "])))
+(define (xy->pst x y width height)
+  (let* ([dist (sqrt (+ (* x x) (* y y)))]
+         [smaller-bound (if (< width height) width height)] [inrad-base (/ smaller-bound 4)]
+       [ring-breadth (/ inrad-base 3)])
+    (cond [(or (< dist inrad-base) (> dist (+ inrad-base (* ring-breadth 3)))) ""]
+          [(< dist (+ inrad-base ring-breadth)) "Tertiary: "]
+          [(< dist (+ inrad-base (* ring-breadth 2))) "Secondary: "]
+          [else "Primary: "])))
 (define (angle->colour a)
   (string-titlecase (symbol->string (colours (inexact->exact (ceiling (* 67 (/ a τ))))))))
 
@@ -132,36 +134,42 @@
           (+ rot (* (sub1 n) (/ τ 67)) nibble) (+ rot (- (* n (/ τ 67)) nibble)))))
 
 (define (draw-rings dc)
-  (let*-values ([(width height) (send dc get-size)]
-                [(midwidth) (/ width 2)] [(midheight) (/ height 2)])
+  (let*-values 
+      ([(width height) (send dc get-size)] 
+       [(midwidth) (/ width 2)] [(midheight) (/ height 2)]
+       [(smaller-bound) (if (< width height) width height)] [(inrad-base) (/ smaller-bound 4)]
+       [(ring-breadth) (/ inrad-base 3)] [(ring-inner) (/ ring-breadth 3)]
+       [(ring-boundary) (/ ring-inner 8)])
     (send dc set-background (make-color 240 240 240))
     (send dc clear)
     (send dc set-smoothing 'smoothed)
-    (send dc set-pen (send dc get-background) 2 'solid)
+    (send dc set-pen (send dc get-background) ring-boundary 'solid)
     (for ([j (in-range 0 3)])
-      (let ([inrad (+ 200 (* 50 (- 2 j)))])
+      (let ([inrad (+ (- inrad-base ring-boundary) (* ring-breadth (- 2 j)))])
         (for ([i (in-range 1 68)])
-          (let ([in-colour (in-range? (- 3 j) i)] [iflip (- 68 i)])
+          (let ([in-colour (in-range? (add1 j) i)] [iflip (- 68 i)])
             (send dc set-brush 
                   (if in-colour (num->col i) (make-color 220 220 220)) 'solid)
-            (draw-segment dc midwidth midheight (+ inrad 50) iflip)
-            (when (and in-colour (list-ref acc (- 2 j)))
+            (draw-segment dc midwidth midheight (+ inrad ring-breadth) iflip)
+            (when (and in-colour (list-ref acc j))
               (send dc set-pen "black" 0 'transparent)
               (for ([a (in-range 1 3)])
                 (send dc set-brush (num->col i a) 'solid)
-                (draw-segment dc midwidth midheight (+ inrad 50/3 (/ 50 (* 3 a))) iflip 4))
+                (draw-segment dc midwidth midheight 
+                              (+ inrad ring-inner (/ ring-breadth (* 3 a))) iflip 4))
               (send dc set-brush (num->col i) 'solid)
-              (draw-segment dc midwidth midheight (+ inrad 50/3) iflip 2)
-              (send dc set-pen (send dc get-background) 2 'solid))))
+              (draw-segment dc midwidth midheight (+ inrad ring-inner) iflip 2)
+              (send dc set-pen (send dc get-background) ring-boundary 'solid))))
         (send dc set-brush (send dc get-background) 'solid)
         (draw-circle dc midwidth midheight inrad)))))
 
-(define frame (new frame% [label "Dragonwheels v0.2"])) ; VERSION NUMBER HERE
+(define frame (new frame% [label "Dragonwheels v0.3"])) ; VERSION NUMBER HERE
 (define horizon (new horizontal-panel% [parent frame] [alignment '(center center)]))
-(define left-p (new vertical-panel% [parent horizon]))
+(define left-p (new vertical-panel% [parent horizon] [stretchable-width #f]))
 (define mid-p (new vertical-panel% [parent horizon]))
-(define top-p (new horizontal-panel% [parent mid-p] [alignment '(center center)]))
-(define right-p (new vertical-panel% [parent horizon]))
+(define top-p (new horizontal-panel% [parent mid-p] [alignment '(center center)]
+                   [stretchable-height #f]))
+(define right-p (new vertical-panel% [parent horizon] [stretchable-width #f]))
 
 (define my-canvas%
   (class canvas%
@@ -170,7 +178,8 @@
                     [(x) (- (send event get-x) (/ width 2))] 
                     [(y) (- (send event get-y) (/ height 2))])
         (send colour-label set-label 
-              (let ([pst (xy->pst x y)])
+              (let*-values ([(width height) (send (send this get-dc) get-size)]
+                            [(pst) (xy->pst x y width height)])
                 (if (equal? pst "") pst
                     (string-append pst (angle->colour (xy->angle x y))))))))
     (super-new)))
@@ -258,7 +267,7 @@
   (send male-label set-label (name-dragon pairing-male))
   (send female-label set-label (name-dragon pairing-female))
   (send canvas refresh))
-(define canvas (new my-canvas% [parent mid-p] [min-width 700] [min-height 700]
+(define canvas (new my-canvas% [parent mid-p] [min-width 500] [min-height 500]
                     [paint-callback 
                      (λ (canvas dc)
                        (draw-rings dc))]))
