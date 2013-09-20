@@ -22,6 +22,7 @@
 (define (get-female) pairing-female)
 
 (define vis '(#t #t #t))
+(define acc '(#t #f #f))
 
 (define hex-values
   '((aqua (114 196 196)) 
@@ -43,11 +44,51 @@
     (tangerine (255 115 96)) (teal (43 118 143)) (thistle (143 124 139)) (tomato (186 49 28))
     (violet (100 63 156)) (white (255 255 255))))
 
-(define hex-lookup
-  (let ([hv (make-hash hex-values)])
-    (λ (k) (first (hash-ref hv k)))))
+(define tum-values
+  '((chocolate (131 84 56)) 
+    (maize (230 219 163)) (shadow (73 57 57)) (sky (255 245 243))
+    (jungle (62 96 48)) (gold (244 188 127)) (rust (200 77 49)) (white (242 238 234))
+    (mulberry (140 76 203)) (stonewash (72 94 145)) (forest (39 50 29)) (sunshine (164 88 37))
+    (tomato (230 70 49)) (ice (192 195 224)) (thistle (97 75 88)) (steel (151 155 156))
+    (swamp (162 165 116)) (orange (238 136 70)) (crimson (81 15 21)) (platinum (249 249 249))
+    (lavender (136 96 181)) (denim (101 139 160)) (avocado (158 195 93)) (fire (165 64 53))
+    (blood (41 15 15)) (silver (94 94 105)) (purple (172 132 252)) (azure (50 139 201))
+    (green (103 180 124)) (tangerine (192 56 34)) (maroon (147 65 47)) (grey (167 167 167)) 
+    (violet (190 138 119)) (caribbean (0 70 109)) (leaf (100 146 12)) (sand (217 170 118))
+    (red (255 97 61)) (charcoal (143 143 143)) (royal (125 85 197)) (teal (69 199 198))
+    (spring (238 164 70)) (beige (114 108 86)) (carmine (111 40 60)) (coal (31 30 28))
+    (storm (66 68 99)) (aqua (132 231 193)) (goldenrod (186 141 38)) (stone (224 221 192))
+    (coral (246 196 165)) (black (201 192 190)) (navy (71 71 116)) (seafoam (221 250 205))
+    (lemon (159 112 57)) (slate (138 127 121)) (magenta (255 129 173)) (obsidian (47 54 56))
+    (blue (70 112 238)) (jade (51 124 90)) (banana (255 245 189)) (soil (136 118 93))
+    (pink (187 116 181)) (midnight (27 29 32)) (splash (41 59 127)) (emerald (111 123 63))
+    (ivory (255 219 177)) (brown (84 51 42)) (rose (247 159 201))))
 
-(define (num->col n) (apply make-color (hex-lookup (colours n))))
+(define horn-values
+  '((chocolate (53 24 3))
+    (maize (177 173 60)) (shadow (67 52 54)) (sky (137 216 219)) (jungle (88 140 53))
+    (gold (241 198 158)) (rust (219 130 88)) (white (236 222 210)) (mulberry (84 56 83))
+    (stonewash (205 221 255)) (forest (135 155 117)) (sunshine (91 55 42)) (tomato (254 79 30))
+    (ice (174 184 214)) (thistle (216 197 230)) (steel (192 203 217)) (swamp (151 136 101))
+    (orange (218 171 127)) (crimson (36 15 16)) (platinum (67 67 67)) (lavender (99 68 119))
+    (denim (56 52 48)) (avocado (176 255 37)) (fire (91 51 47)) (blood (22 18 16))
+    (silver (233 233 233)) (purple (106 52 173)) (azure (48 154 240)) (green (71 68 93))
+    (tangerine (186 70 55)) (maroon (62 40 43)) (grey (190 190 190)) (violet (217 169 126))
+    (caribbean (0 40 63)) (leaf (32 82 44)) (sand (217 136 98)) (red (218 171 127))
+    (charcoal (36 36 36)) (royal (179 137 255)) (teal (50 61 73)) (spring (217 169 126))
+    (beige (66 56 18)) (carmine (44 27 32)) (coal (135 133 130)) (storm (49 43 68))
+    (aqua (198 238 225)) (goldenrod (170 129 0)) (stone (205 197 172)) (coral (245 171 166))
+    (black (193 193 193)) (navy (46 51 55)) (seafoam (103 193 141)) (lemon (83 68 0))
+    (slate (195 187 178)) (magenta (90 2 13)) (obsidian (47 54 56)) (blue (126 130 217))
+    (jade (67 67 67)) (banana (255 238 177)) (soil (48 26 8)) (pink (211 175 196)) 
+    (midnight (69 70 78)) (splash (95 226 222)) (emerald (193 217 91)) (ivory (255 250 243))
+    (brown (55 44 35)) (rose (255 255 255))))
+
+(define hex-lookup
+  (let ([hv (list (make-hash hex-values) (make-hash tum-values) (make-hash horn-values))])
+    (λ (k [i 0]) (first (hash-ref (list-ref hv i) k)))))
+
+(define (num->col n [i 0]) (apply make-color (hex-lookup (colours n) i)))
 
 (define τ (* 2 3.14159265358979))
 (define rot (* τ 1/4))
@@ -85,26 +126,37 @@
 
 (define (draw-circle dc x y r)
   (send dc draw-ellipse (- x r) (- y r) (* r 2) (* r 2)))
-(define (draw-segment dc x y r n)
-  (let ([nibble (* (/ τ 67) 0.05)])
+(define (draw-segment dc x y r n [nib 1])
+  (let ([nibble (* (/ τ 67) (* nib 0.05))])
     (send dc draw-arc (- x r) (- y r) (* r 2) (* r 2)
           (+ rot (* (sub1 n) (/ τ 67)) nibble) (+ rot (- (* n (/ τ 67)) nibble)))))
 
 (define (draw-rings dc)
-  (let-values ([(width height) (send dc get-size)])
+  (let*-values ([(width height) (send dc get-size)]
+                [(midwidth) (/ width 2)] [(midheight) (/ height 2)])
     (send dc set-background (make-color 240 240 240))
     (send dc clear)
     (send dc set-smoothing 'smoothed)
     (send dc set-pen (send dc get-background) 2 'solid)
     (for ([j (in-range 0 3)])
-      (for ([i (in-range 1 68)])
-        (send dc set-brush 
-              (if (in-range? (- 3 j) i) (num->col i) (make-color 220 220 220)) 'solid)
-        (draw-segment dc (/ width 2) (/ height 2) (+ 200 (* 50 (- 3 j))) (- 68 i)))
-      (send dc set-brush (send dc get-background) 'solid)
-      (draw-circle dc (/ width 2) (/ height 2) (+ 200 (* 50 (- 2 j)))))))
+      (let ([inrad (+ 200 (* 50 (- 2 j)))])
+        (for ([i (in-range 1 68)])
+          (let ([in-colour (in-range? (- 3 j) i)] [iflip (- 68 i)])
+            (send dc set-brush 
+                  (if in-colour (num->col i) (make-color 220 220 220)) 'solid)
+            (draw-segment dc midwidth midheight (+ inrad 50) iflip)
+            (when (and in-colour (list-ref acc (- 2 j)))
+              (send dc set-pen "black" 0 'transparent)
+              (for ([a (in-range 1 3)])
+                (send dc set-brush (num->col i a) 'solid)
+                (draw-segment dc midwidth midheight (+ inrad 50/3 (/ 50 (* 3 a))) iflip 4))
+              (send dc set-brush (num->col i) 'solid)
+              (draw-segment dc midwidth midheight (+ inrad 50/3) iflip 2)
+              (send dc set-pen (send dc get-background) 2 'solid))))
+        (send dc set-brush (send dc get-background) 'solid)
+        (draw-circle dc midwidth midheight inrad)))))
 
-(define frame (new frame% [label "Dragonwheels v0.1"])) ; VERSION NUMBER HERE
+(define frame (new frame% [label "Dragonwheels v0.2"])) ; VERSION NUMBER HERE
 (define horizon (new horizontal-panel% [parent frame] [alignment '(center center)]))
 (define left-p (new vertical-panel% [parent horizon]))
 (define mid-p (new vertical-panel% [parent horizon]))
@@ -129,8 +181,13 @@
   (set! timon #f)
   (send pause-spin set-label "Spin")
   (send tim stop)
-  (for-each (λ (b) (unless (equal? (substring (send b get-label) 0 4) "Hide")
-                     (send b command b))) (send toggle-p get-children)))
+  (set! acc '(#t #f #f))
+  (for-each (λ (p n)
+              (let ([b (first (send p get-children))] [b2 (second (send p get-children))])
+                (unless (equal? (substring (send b get-label) 0 4) "Hide")
+                  (send b command b))
+                (send b2 set-label (if (list-ref acc n) "-Accent" "+Accent"))))
+            (send toggle-p get-children) '(0 1 2)))
 
 (define (colour-drops tall-p getpr setpr)
   (map 
@@ -158,13 +215,24 @@
 (define toggle-p (new vertical-panel% [parent top-p] [stretchable-width #f] 
                       [alignment '(center center)]))
 (for-each 
- (λ (n s) (new button% [parent toggle-p] [label (string-append "Hide " s)]
-               [callback (λ (b e) (set! vis (append (take vis n) (cons (not (list-ref vis n)) 
-                                                                       (drop vis (add1 n)))))
-                           (if (list-ref vis n)
-                               (send b set-label (string-append "Hide " s))
-                               (send b set-label (string-append "Show " s)))
-                           (refresh-pairing))]))
+ (λ (n s) 
+   (define i-p (new horizontal-panel% [parent toggle-p] [stretchable-height #f]
+                    [alignment '(center center)]))
+   (new button% [parent i-p] [label (string-append "Hide " s)]
+        [callback (λ (b e) (set! vis (append (take vis n) (cons (not (list-ref vis n)) 
+                                                                (drop vis (add1 n)))))
+                    (if (list-ref vis n)
+                        (send b set-label (string-append "Hide " s))
+                        (send b set-label (string-append "Show " s)))
+                    (refresh-pairing))])
+   (new button% [parent i-p] [stretchable-width #f]
+        [label (string-append (if (list-ref acc n) "-" "+") "Accent")]
+        [callback (λ (b e) (set! acc (append (take acc n) (cons (not (list-ref acc n))
+                                                                (drop acc (add1 n)))))
+                    (if (list-ref acc n) 
+                        (send b set-label "-Accent") 
+                        (send b set-label "+Accent"))
+                    (refresh-pairing))]))
  '(0 1 2) '("Primary" "Secondary" "Tertiary"))
 
 (define pause-spin (new button% [parent top-p] [label "Spin"] [stretchable-height #t]
