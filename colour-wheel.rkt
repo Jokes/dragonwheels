@@ -163,7 +163,42 @@
         (send dc set-brush (send dc get-background) 'solid)
         (draw-circle dc midwidth midheight inrad)))))
 
-(define frame (new frame% [label "Dragonwheels v0.3"])) ; VERSION NUMBER HERE
+(define (draw-ring-mask dc)
+  (let*-values
+      ([(width height) (send dc get-size)] 
+       [(midwidth) (/ width 2)] [(midheight) (/ height 2)]
+       [(smaller-bound) (if (< width height) width height)] [(inrad-base) (/ smaller-bound 4)]
+       [(ring-breadth) (/ inrad-base 3)] [(ring-inner) (/ ring-breadth 3)]
+       [(ring-boundary) (/ ring-inner 8)])
+    (send dc set-background "white")
+    (send dc clear)
+    (send dc set-smoothing 'smoothed)
+    (send dc set-pen (send dc get-background) ring-boundary 'solid)
+    (for ([j (in-range 0 3)])
+      (let ([inrad (+ (- inrad-base ring-boundary) (* ring-breadth (- 2 j)))])
+        (for ([i (in-range 1 68)])
+          (send dc set-brush "black" 'solid)
+            (draw-segment dc midwidth midheight (+ inrad ring-breadth) (- 68 i)))
+        (send dc set-brush "white" 'solid)
+        (draw-circle dc midwidth midheight inrad)))))
+
+(define (export-rings)
+  (let*-values ([(width height) (send (send canvas get-dc) get-size)]
+                [(rng) (make-bitmap width height)]
+                [(rng-dc) (new bitmap-dc% [bitmap rng])]
+                [(msk) (make-bitmap width height #f)]
+                [(msk-dc) (new bitmap-dc% [bitmap msk])]
+                [(fin) (make-bitmap width height)]
+                [(fin-dc) (new bitmap-dc% [bitmap fin])])
+    (draw-rings rng-dc)
+    (draw-ring-mask msk-dc)
+    (send fin-dc erase)
+    (send fin-dc draw-bitmap rng 0 0 'solid (make-color 0 0 0) msk)
+    (send fin save-file
+          (string-append (name-dragon pairing-male) "-"
+                         (name-dragon pairing-female) ".png") 'png)))
+
+(define frame (new frame% [label "Dragonwheels v0.4"])) ; VERSION NUMBER HERE
 (define horizon (new horizontal-panel% [parent frame] [alignment '(center center)]))
 (define left-p (new vertical-panel% [parent horizon] [stretchable-width #f]))
 (define mid-p (new vertical-panel% [parent horizon]))
@@ -259,6 +294,8 @@
                                        [alignment '(center center)])]))
 (define female-drops
   (colour-drops female-p get-female set-female))
+
+(define export-b (new button% [parent mid-p] [label "Export"] [callback (λ (b e) (export-rings))]))
 
 (define pairing-label (new message% [parent mid-p] [label ""] [auto-resize #t]))
 (define (refresh-pairing)
