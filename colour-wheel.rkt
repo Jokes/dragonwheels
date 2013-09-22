@@ -133,7 +133,7 @@
     (send dc draw-arc (- x r) (- y r) (* r 2) (* r 2)
           (+ rot (* (sub1 n) (/ τ 67)) nibble) (+ rot (- (* n (/ τ 67)) nibble)))))
 
-(define (draw-rings dc)
+(define (draw-rings dc [solid #f])
   (let*-values 
       ([(width height) (send dc get-size)] 
        [(midwidth) (/ width 2)] [(midheight) (/ height 2)]
@@ -143,14 +143,14 @@
     (send dc set-background (make-color 240 240 240))
     (send dc clear)
     (send dc set-smoothing 'smoothed)
-    (send dc set-pen (send dc get-background) ring-boundary 'solid)
+    (send dc set-pen (send dc get-background) ring-boundary (if solid 'transparent 'solid))
     (for ([j (in-range 0 3)])
       (let ([inrad (+ (- inrad-base ring-boundary) (* ring-breadth (- 2 j)))])
         (for ([i (in-range 1 68)])
           (let ([in-colour (in-range? (add1 j) i)] [iflip (- 68 i)])
             (send dc set-brush 
                   (if in-colour (num->col i) (make-color 220 220 220)) 'solid)
-            (draw-segment dc midwidth midheight (+ inrad ring-breadth) iflip)
+            (draw-segment dc midwidth midheight (+ inrad ring-breadth) iflip (if solid 0 1))
             (when (and in-colour (list-ref acc j))
               (send dc set-pen "black" 0 'transparent)
               (for ([a (in-range 1 3)])
@@ -159,7 +159,8 @@
                               (+ inrad ring-inner (/ ring-breadth (* 3 a))) iflip 4))
               (send dc set-brush (num->col i) 'solid)
               (draw-segment dc midwidth midheight (+ inrad ring-inner) iflip 2)
-              (send dc set-pen (send dc get-background) ring-boundary 'solid))))
+              (send dc set-pen (send dc get-background) ring-boundary 
+                    (if solid 'transparent 'solid)))))
         (send dc set-brush (send dc get-background) 'solid)
         (draw-circle dc midwidth midheight inrad)))))
 
@@ -184,22 +185,25 @@
 
 (define (export-rings)
   (let*-values ([(width height) (send (send canvas get-dc) get-size)]
-                [(rng) (make-bitmap width height)]
+                [(smaller-bound) (if (< width height) width height)]
+                [(rng) (make-bitmap smaller-bound smaller-bound)]
                 [(rng-dc) (new bitmap-dc% [bitmap rng])]
-                [(msk) (make-bitmap width height #f)]
+                [(msk) (make-bitmap smaller-bound smaller-bound #f)]
                 [(msk-dc) (new bitmap-dc% [bitmap msk])]
-                [(fin) (make-bitmap width height)]
+                [(fin) (make-bitmap smaller-bound smaller-bound)]
                 [(fin-dc) (new bitmap-dc% [bitmap fin])])
-    (draw-rings rng-dc)
+    (draw-rings rng-dc #t)
     (draw-ring-mask msk-dc)
     (send fin-dc erase)
     (send fin-dc draw-bitmap rng 0 0 'solid (make-color 0 0 0) msk)
     (send fin save-file
           (string-append (name-dragon pairing-male) "-"
-                         (name-dragon pairing-female) ".png") 'png)))
+                         (name-dragon pairing-female) "-"
+                         (number->string smaller-bound) ".png") 'png)))
 
-(define frame (new frame% [label "Dragonwheels v0.4"])) ; VERSION NUMBER HERE
-(define horizon (new horizontal-panel% [parent frame] [alignment '(center center)]))
+(define frame (new frame% [label "Dragonwheels v0.5"] [width 820] [height 600])) ; VERSION # HERE
+(define horizon (new horizontal-panel% [parent frame] [alignment '(center center)] 
+                     [min-height 100] [min-width 200] [style '(auto-vscroll auto-hscroll)]))
 (define left-p (new vertical-panel% [parent horizon] [stretchable-width #f]))
 (define mid-p (new vertical-panel% [parent horizon]))
 (define top-p (new horizontal-panel% [parent mid-p] [alignment '(center center)]
@@ -304,7 +308,7 @@
   (send male-label set-label (name-dragon pairing-male))
   (send female-label set-label (name-dragon pairing-female))
   (send canvas refresh))
-(define canvas (new my-canvas% [parent mid-p] [min-width 500] [min-height 500]
+(define canvas (new my-canvas% [parent mid-p] [min-width 100] [min-height 100]
                     [paint-callback 
                      (λ (canvas dc)
                        (draw-rings dc))]))
