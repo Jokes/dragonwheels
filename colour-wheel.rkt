@@ -22,7 +22,8 @@
 (define (get-female) pairing-female)
 
 (define vis '(#t #t #t))
-(define acc '(#t #f #f))
+(define acc '(#t #t #f))
+(define accnum '(0 2 2))
 
 (define hex-values
   '((aqua (114 196 196)) 
@@ -84,8 +85,48 @@
     (midnight (69 70 78)) (splash (95 226 222)) (emerald (193 217 91)) (ivory (255 250 243))
     (brown (55 44 35)) (rose (255 255 255))))
 
+(define shade-values
+  '((maize (169 146 30))
+    (white (143 143 143)) (ice (76 92 122)) (platinum (95 72 98)) (silver (72 72 74))
+    (grey (51 51 51)) (charcoal (36 36 36))  (coal (31 30 28)) (black (11 11 11)) (obsidian (0 0 0))
+    (midnight (0 1 1)) (shadow (12 7 16)) (mulberry (55 14 37)) (thistle (60 41 49))
+    (lavender (60 41 49)) (purple (57 25 110)) (violet (36 29 73)) (royal (18 6 55))
+    (storm (23 26 71)) (navy (8 13 42)) (blue (12 25 74)) (splash (12 37 80)) (sky (34 68 138))
+    (stonewash (32 53 85)) (steel (31 46 60)) (denim (16 28 40)) (azure (3 26 48))
+    (caribbean (0 51 85)) (teal (29 39 52)) (aqua (25 82 84)) (seafoam (36 86 54)) (jade (11 77 61))
+    (emerald (5 50 29)) (jungle (3 16 1)) (forest (42 56 29)) (swamp (54 71 27))
+    (avocado (34 64 11)) (green (55 83 26)) (leaf (52 69 10)) (spring (76 85 21))
+    (goldenrod (112 75 18)) (lemon (93 57 24)) (banana (126 98 26)) (ivory (153 101 53))
+    (gold (103 58 0)) (sunshine (86 39 13)) (orange (99 61 11)) (fire (90 46 36))
+    (tangerine (110 27 15)) (sand (87 47 18)) (beige (121 104 79)) (stone (78 64 45))
+    (slate (47 37 28)) (soil (54 36 23)) (brown (43 32 24)) (chocolate (41 17 2)) (rust (82 26 15))
+    (tomato (84 17 6)) (crimson (79 5 0)) (blood (14 10 8)) (maroon (60 17 17)) (red (75 7 7))
+    (carmine (73 24 32)) (coral (134 60 60)) (magenta (128 22 72)) (pink (132 31 92))
+    (rose (222 114 175))))
+
+(define high-values
+  '((maize (254 252 231))
+    (white (252 252 252)) (ice (204 230 253)) (platinum (246 246 246)) (silver (231 231 231))
+    (grey (186 186 186)) (charcoal (175 175 175)) (coal (181 176 168)) (black (203 200 200))
+    (obsidian (120 123 124)) (midnight (120 120 172)) (shadow (148 124 162)) (mulberry (202 106 221))
+    (thistle (214 195 228)) (lavender (239 209 253)) (purple (221 175 253)) (violet (199 124 253))
+    (royal (190 151 251)) (storm (176 181 253)) (navy (85 95 238)) (blue (129 173 253))
+    (splash (93 224 220)) (sky (251 243 241)) (stonewash (203 219 253)) (steel (190 201 215))
+    (denim (102 181 208)) (azure (71 233 251)) (caribbean (46 244 253)) (teal (108 251 250))
+    (aqua (149 253 192)) (seafoam (156 249 137)) (jade (147 214 187)) (emerald (142 251 89))
+    (jungle (98 191 83)) (forest (138 179 95)) (swamp (200 221 161)) (avocado (175 253 80))
+    (green (185 253 156)) (leaf (206 253 117)) (spring (241 243 103)) (goldenrod (253 233 172))
+    (lemon (253 248 143)) (banana (253 253 212)) (ivory (253 242 228)) (gold (253 199 142))
+    (sunshine (253 199 104)) (orange (253 187 101)) (fire (251 155 83)) (tangerine (253 177 150))
+    (sand (253 206 154)) (beige (253 238 211)) (stone (221 217 188)) (slate (150 127 114))
+    (soil (163 141 109)) (brown (175 135 96)) (chocolate (182 121 73)) (rust (243 145 88))
+    (tomato (253 154 97)) (crimson (245 60 60)) (blood (173 52 52)) (maroon (215 89 77))
+    (red (253 123 89)) (carmine (253 133 133)) (coral (253 188 173)) (magenta (253 170 203))
+    (pink (252 189 228)) (rose (253 251 253))))
+
 (define hex-lookup
-  (let ([hv (list (make-hash hex-values) (make-hash tum-values) (make-hash horn-values))])
+  (let ([hv (list (make-hash hex-values) (make-hash tum-values) (make-hash horn-values)
+                  (make-hash shade-values) (make-hash high-values))])
     (λ (k [i 0]) (first (hash-ref (list-ref hv i) k)))))
 
 (define (num->col n [i 0]) (apply make-color (hex-lookup (colours n) i)))
@@ -100,7 +141,7 @@
 (define (xy->pst x y width height)
   (let* ([dist (sqrt (+ (* x x) (* y y)))]
          [smaller-bound (if (< width height) width height)] [inrad-base (/ smaller-bound 4)]
-       [ring-breadth (/ inrad-base 3)])
+         [ring-breadth (/ inrad-base 3)])
     (cond [(or (< dist inrad-base) (> dist (+ inrad-base (* ring-breadth 3)))) ""]
           [(< dist (+ inrad-base ring-breadth)) "Tertiary: "]
           [(< dist (+ inrad-base (* ring-breadth 2))) "Secondary: "]
@@ -154,7 +195,7 @@
             (when (and in-colour (list-ref acc j))
               (send dc set-pen "black" 0 'transparent)
               (for ([a (in-range 1 3)])
-                (send dc set-brush (num->col i a) 'solid)
+                (send dc set-brush (num->col i (+ (list-ref accnum j) a)) 'solid)
                 (draw-segment dc midwidth midheight 
                               (+ inrad ring-inner (/ ring-breadth (* 3 a))) iflip 4))
               (send dc set-brush (num->col i) 'solid)
@@ -179,7 +220,7 @@
       (let ([inrad (+ (- inrad-base ring-boundary) (* ring-breadth (- 2 j)))])
         (for ([i (in-range 1 68)])
           (send dc set-brush "black" 'solid)
-            (draw-segment dc midwidth midheight (+ inrad ring-breadth) (- 68 i)))
+          (draw-segment dc midwidth midheight (+ inrad ring-breadth) (- 68 i)))
         (send dc set-brush "white" 'solid)
         (draw-circle dc midwidth midheight inrad)))))
 
@@ -201,7 +242,7 @@
                          (name-dragon pairing-female) "-"
                          (number->string smaller-bound) ".png") 'png)))
 
-(define frame (new frame% [label "Dragonwheels v0.5"] [width 820] [height 600])) ; VERSION # HERE
+(define frame (new frame% [label "Dragonwheels v0.6"] [width 820] [height 600])) ; VERSION # HERE
 (define horizon (new horizontal-panel% [parent frame] [alignment '(center center)] 
                      [min-height 100] [min-width 200] [style '(auto-vscroll auto-hscroll)]))
 (define left-p (new vertical-panel% [parent horizon] [stretchable-width #f]))
